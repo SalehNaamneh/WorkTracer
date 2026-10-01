@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
+import { useAuth } from '../context/AuthContext'
 
 const tabs = [
   { to: '/', label: 'Work Days', labelHe: 'ימי עבודה', icon: '📅' },
@@ -9,7 +10,8 @@ const tabs = [
 ]
 
 export default function BottomNav() {
-  const { lang, toggleLang } = useLanguage()
+  const { lang, toggleLang, s } = useLanguage()
+  const { logout } = useAuth()
 
   return (
     <nav
@@ -67,6 +69,20 @@ export default function BottomNav() {
         }}
       >
         {lang === 'en' ? 'עב' : 'EN'}
+      </button>
+      <button
+        onClick={() => { if (confirm(`${s.logout}?`)) logout() }}
+        title={s.logout}
+        style={{
+          padding: '10px 12px 10px 0',
+          fontSize: 18,
+          color: '#9CA3AF',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+        }}
+      >
+        ⎋
       </button>
     </nav>
   )

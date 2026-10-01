@@ -15,7 +15,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (data.session) {
+        // The stored session may belong to a user that no longer exists; verify with the server
+        const { error } = await supabase.auth.getUser()
+        // Only on an auth rejection, so a network blip doesn't log the user out
+        if (error && (error.status === 401 || error.status === 403)) {
+          await supabase.auth.signOut({ scope: 'local' })
+          setUser(null)
+          setLoading(false)
+          return
+        }
+      }
       setUser(data.session?.user ?? null)
       setLoading(false)
     })
