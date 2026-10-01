@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
-import { getExpenses, addExpense, deleteExpense, getWorkers, getSites } from '../db/storage'
+import { getExpenses, addExpense, deleteExpense, getWorkers, getSites, getWorkDayWorkers } from '../db/storage'
 import type { Expense, Worker, Site } from '../types'
 
 function formatDate(d: string) {
@@ -37,6 +37,23 @@ export default function ExpensesScreen() {
     if (!user) return
     setLoading(true)
     const [exp, wrk, st] = await Promise.all([getExpenses(user.id), getWorkers(user.id), getSites(user.id)])
+
+    // Older worker-pay expenses were saved without a site; derive it from the work day
+    const missing = exp.filter(e => e.is_worker_pay && !e.site_id && e.work_day_id && e.worker_id)
+    if (missing.length) {
+      const wdw = await getWorkDayWorkers([...new Set(missing.map(e => e.work_day_id!))])
+      const siteByWorkerDay: Record<string, string> = {}
+      wdw.forEach(r => {
+        const key = `${r.work_day_id}:${r.worker_id}`
+        if (!siteByWorkerDay[key]) siteByWorkerDay[key] = r.site_id
+      })
+      exp.forEach(e => {
+        if (e.is_worker_pay && !e.site_id && e.work_day_id && e.worker_id) {
+          e.site_id = siteByWorkerDay[`${e.work_day_id}:${e.worker_id}`] ?? null
+        }
+      })
+    }
+
     setExpenses(exp)
     setWorkers(wrk)
     setSites(st)

@@ -118,6 +118,7 @@ export async function addWorkDay(userId: string, entry: WorkDayEntry): Promise<W
         is_worker_pay: true,
         worker_id: w.worker_id,
         work_day_id: workDay.id,
+        site_id: siteEntry.site_id,
         user_id: userId,
       })
     }
