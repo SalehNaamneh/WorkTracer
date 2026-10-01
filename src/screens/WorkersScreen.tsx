@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
-import { getWorkers, getWorkDays, getWorkDayWorkers, getWorkerPayments, addWorker } from '../db/storage'
+import { getWorkers, getWorkDays, getWorkDayWorkers, getWorkerPayments, addWorker, fetchExportData } from '../db/storage'
 import type { Worker, WorkDay, WorkDayWorker, WorkerPayment } from '../types'
+import { buildCSV, downloadCSV } from '../lib/csvExport'
 
 function monthLabel(dateStr: string) {
   const d = new Date(dateStr + '-01')
@@ -81,16 +82,78 @@ export default function WorkersScreen() {
 
   const cur = currentMonth()
 
+  const handleExport = async () => {
+    if (!user) return
+    const d = await fetchExportData(user.id)
+    const siteMap = Object.fromEntries(d.sites.map(s => [s.id, s]))
+    const workerMap = Object.fromEntries(d.workers.map(w => [w.id, w]))
+
+    // Section 1 — Worker monthly summary
+    const summaryRows: (string | number)[][] = []
+    const monthSet = new Set<string>()
+    d.workDays.forEach(wd => monthSet.add(wd.date.slice(0, 7)))
+    monthSet.add(cur)
+    const allMonths = Array.from(monthSet).sort((a, b) => b.localeCompare(a))
+
+    for (const month of allMonths) {
+      const monthDayIds = new Set(d.workDays.filter(wd => wd.date.startsWith(month)).map(wd => wd.id))
+      for (const w of d.workers) {
+        const entries = d.wdWorkers.filter(x => x.worker_id === w.id && monthDayIds.has(x.work_day_id))
+        const days = new Set(entries.map(x => x.work_day_id)).size
+        const earned = days * w.daily_rate
+        const paid = d.payments.filter(p => p.worker_id === w.id && p.date.startsWith(month)).reduce((s, p) => s + p.amount, 0)
+        summaryRows.push([w.name, month, days, earned, paid, earned - paid])
+      }
+    }
+
+    // Section 2 — Work days
+    const wdRows: (string | number)[][] = d.workDays.map(wd => {
+      const sitesForDay = d.wdSites.filter(ws => ws.work_day_id === wd.id).map(ws => siteMap[ws.site_id]?.name ?? '').join(' | ')
+      const workersForDay = [...new Set(d.wdWorkers.filter(w => w.work_day_id === wd.id).map(w => workerMap[w.worker_id]?.name ?? ''))].join(' | ')
+      return [wd.date, sitesForDay, workersForDay]
+    })
+
+    // Section 3 — Expenses
+    const expRows: (string | number)[][] = d.expenses.map(e => [
+      e.date, e.description, e.amount,
+      e.site_id ? (siteMap[e.site_id]?.name ?? '') : '',
+      e.note,
+      e.is_worker_pay ? 'Worker Pay' : 'Manual',
+    ])
+
+    // Section 4 — Worker payments
+    const payRows: (string | number)[][] = d.payments.map(p => [
+      workerMap[p.worker_id]?.name ?? '', p.amount, p.date, p.note,
+    ])
+
+    const csv = buildCSV([
+      { title: 'Worker Monthly Summary', headers: ['Worker', 'Month', 'Days Worked', 'Earned (₪)', 'Paid (₪)', 'Owed (₪)'], rows: summaryRows },
+      { title: 'Work Days', headers: ['Date', 'Sites', 'Workers'], rows: wdRows },
+      { title: 'Expenses', headers: ['Date', 'Description', 'Amount (₪)', 'Site', 'Note', 'Type'], rows: expRows },
+      { title: 'Worker Payments', headers: ['Worker', 'Amount (₪)', 'Date', 'Note'], rows: payRows },
+    ])
+    downloadCSV(csv, `work-data-${cur}.csv`)
+  }
+
   return (
     <div className="page">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{s.workers}</h1>
           {workers.length > 0 && (
-            <p className="text-sm text-gray-400 mt-0.5">{workers.length} workers</p>
+            <p className="text-sm text-gray-400 mt-0.5">{workers.length} {s.workersLabel.toLowerCase()}</p>
           )}
         </div>
-        <button onClick={() => setShowAddWorker(true)} className="fab">＋</button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-500 text-base"
+            title={s.exportCSV}
+          >
+            ⬇
+          </button>
+          <button onClick={() => setShowAddWorker(true)} className="fab">＋</button>
+        </div>
       </div>
 
       {loading ? (

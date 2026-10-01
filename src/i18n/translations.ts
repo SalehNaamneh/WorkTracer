@@ -101,6 +101,9 @@ const translations = {
     workerNotFound: 'Worker not found',
     totalPayDay: 'Total pay this day',
 
+    // Export
+    exportCSV: 'Export CSV',
+
     // Delete confirmation
     deleteConfirm: 'Confirm deletion',
     deleteCodeHint: 'Type 123456 to confirm',
@@ -206,6 +209,9 @@ const translations = {
     allExpenses: 'הכל',
     workerNotFound: 'עובד לא נמצא',
     totalPayDay: 'סה"כ שכר ליום',
+
+    // Export
+    exportCSV: 'ייצוא CSV',
 
     // Delete confirmation
     deleteConfirm: 'אישור מחיקה',

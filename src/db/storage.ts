@@ -249,3 +249,22 @@ export async function deleteExpense(id: string) {
   const { error } = await supabase.from('expenses').delete().eq('id', id)
   if (error) throw error
 }
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
+export async function fetchExportData(userId: string) {
+  const [workers, workDays, sites, payments, expenses] = await Promise.all([
+    getWorkers(userId),
+    getWorkDays(userId),
+    getSites(userId),
+    getWorkerPayments(userId),
+    getExpenses(userId),
+  ])
+  let wdWorkers: WorkDayWorker[] = []
+  let wdSites: WorkDaySite[] = []
+  if (workDays.length) {
+    const ids = workDays.map(d => d.id)
+    ;[wdWorkers, wdSites] = await Promise.all([getWorkDayWorkers(ids), getWorkDaySites(ids)])
+  }
+  return { workers, workDays, sites, payments, expenses, wdWorkers, wdSites }
+}
