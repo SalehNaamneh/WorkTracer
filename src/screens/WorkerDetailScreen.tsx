@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import {
   getWorkers, getWorkDays, getWorkDayWorkers,
-  getSites, getWorkerPayments, addWorkerPayment, updateWorkerRate,
+  getSites, getWorkerPayments, addWorkerPayment, updateWorkerPayment, deleteWorkerPayment, updateWorkerRate,
 } from '../db/storage'
 import type { Worker, WorkDay, WorkDayWorker, Site, WorkerPayment } from '../types'
 
@@ -32,6 +32,7 @@ export default function WorkerDetailScreen() {
   const [loading, setLoading] = useState(true)
 
   const [showPayment, setShowPayment] = useState(false)
+  const [editingPayment, setEditingPayment] = useState<WorkerPayment | null>(null)
   const [payAmount, setPayAmount] = useState('')
   const [payNote, setPayNote] = useState('')
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0])
@@ -75,12 +76,38 @@ export default function WorkerDetailScreen() {
   const totalPaid = payments.filter(p => p.date.startsWith(month)).reduce((sum, p) => sum + p.amount, 0)
   const totalOwed = totalEarned - totalPaid
 
-  const handleAddPayment = async () => {
-    if (!user || !id || !payAmount) return
-    await addWorkerPayment(user.id, id, Number(payAmount), payDate, payNote)
+  const openAddPayment = () => {
+    setEditingPayment(null)
     setPayAmount('')
     setPayNote('')
+    setPayDate(new Date().toISOString().split('T')[0])
+    setShowPayment(true)
+  }
+
+  const openEditPayment = (p: WorkerPayment) => {
+    setEditingPayment(p)
+    setPayAmount(String(p.amount))
+    setPayNote(p.note)
+    setPayDate(p.date)
+    setShowPayment(true)
+  }
+
+  const handleSavePayment = async () => {
+    if (!user || !id || !payAmount) return
+    if (editingPayment) {
+      await updateWorkerPayment(editingPayment.id, Number(payAmount), payDate, payNote)
+    } else {
+      await addWorkerPayment(user.id, id, Number(payAmount), payDate, payNote)
+    }
+    setPayAmount('')
+    setPayNote('')
+    setEditingPayment(null)
     setShowPayment(false)
+    load()
+  }
+
+  const handleDeletePayment = async (p: WorkerPayment) => {
+    await deleteWorkerPayment(p.id)
     load()
   }
 
@@ -200,28 +227,36 @@ export default function WorkerDetailScreen() {
           <p className="section-title">{s.paid}</p>
           <div className="space-y-2 mb-4">
             {monthPayments.map(p => (
-              <div key={p.id} className="card p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center text-sm">✓</div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">₪{p.amount}</p>
-                    {p.note && <p className="text-xs text-gray-400">{p.note}</p>}
-                  </div>
+              <div key={p.id} className="card p-3 flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center text-sm flex-shrink-0">✓</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">₪{p.amount}</p>
+                  {p.note && <p className="text-xs text-gray-400 truncate">{p.note}</p>}
+                  <p className="text-xs text-gray-400">{formatDate(p.date)}</p>
                 </div>
-                <span className="text-xs text-gray-400">{formatDate(p.date)}</span>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => openEditPayment(p)}
+                    className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg"
+                  >{s.edit}</button>
+                  <button
+                    onClick={() => handleDeletePayment(p)}
+                    className="text-xs font-semibold text-red-500 bg-red-50 px-2.5 py-1 rounded-lg"
+                  >{s.delete}</button>
+                </div>
               </div>
             ))}
           </div>
         </>
       )}
 
-      <button className="btn-primary" onClick={() => setShowPayment(true)}>{s.addPayment}</button>
+      <button className="btn-primary" onClick={openAddPayment}>{s.addPayment}</button>
 
       {showPayment && (
         <div className="sheet-overlay" onClick={() => setShowPayment(false)}>
           <div className="sheet" onClick={e => e.stopPropagation()}>
             <div className="sheet-handle" />
-            <p className="sheet-title">💵 {s.addPayment}</p>
+            <p className="sheet-title">💵 {editingPayment ? s.editPayment : s.addPayment}</p>
             <div className="space-y-3">
               <div>
                 <label className="label">{s.paymentAmount} (₪)</label>
@@ -235,7 +270,7 @@ export default function WorkerDetailScreen() {
                 <label className="label">{s.note} <span className="normal-case font-normal text-gray-400">({s.optional})</span></label>
                 <input className="input" placeholder="Add a note…" value={payNote} onChange={e => setPayNote(e.target.value)} />
               </div>
-              <button className="btn-primary" onClick={handleAddPayment}>{s.save}</button>
+              <button className="btn-primary" onClick={handleSavePayment}>{s.save}</button>
               <button className="btn-ghost w-full" onClick={() => setShowPayment(false)}>{s.cancel}</button>
             </div>
           </div>

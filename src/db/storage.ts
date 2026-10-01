@@ -216,6 +216,19 @@ export async function addWorkerPayment(
   return data
 }
 
+export async function updateWorkerPayment(id: string, amount: number, date: string, note: string) {
+  const { error } = await supabase
+    .from('worker_payments')
+    .update({ amount, date, note })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteWorkerPayment(id: string) {
+  const { error } = await supabase.from('worker_payments').delete().eq('id', id)
+  if (error) throw error
+}
+
 // ── Expenses ──────────────────────────────────────────────────────────────────
 
 export async function getExpenses(userId: string): Promise<Expense[]> {
