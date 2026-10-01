@@ -31,6 +31,7 @@ export default function ExpensesScreen() {
   const [newNote, setNewNote] = useState('')
   const [newSiteId, setNewSiteId] = useState('')
   const [saving, setSaving] = useState(false)
+  const [addError, setAddError] = useState('')
 
   const load = async () => {
     if (!user) return
@@ -78,14 +79,20 @@ export default function ExpensesScreen() {
   const handleAdd = async () => {
     if (!user || !newAmount || !newDesc) return
     setSaving(true)
-    await addExpense(user.id, newDate, Number(newAmount), newDesc, newNote, newSiteId || null)
-    setNewAmount('')
-    setNewDesc('')
-    setNewNote('')
-    setNewSiteId('')
-    setShowAdd(false)
-    setSaving(false)
-    load()
+    setAddError('')
+    try {
+      await addExpense(user.id, newDate, Number(newAmount), newDesc, newNote, newSiteId || null)
+      setNewAmount('')
+      setNewDesc('')
+      setNewNote('')
+      setNewSiteId('')
+      setShowAdd(false)
+      load()
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleDelete = async (id: string) => {
@@ -259,6 +266,7 @@ export default function ExpensesScreen() {
                 <label className="label">{s.note} <span className="normal-case font-normal text-gray-400">({s.optional})</span></label>
                 <input className="input" placeholder="Add a note…" value={newNote} onChange={e => setNewNote(e.target.value)} />
               </div>
+              {addError && <p className="text-red-500 text-sm text-center">{addError}</p>}
               <button className="btn-primary" onClick={handleAdd} disabled={saving}>
                 {saving ? s.loading : s.add}
               </button>

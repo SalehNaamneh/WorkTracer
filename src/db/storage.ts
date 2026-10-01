@@ -236,9 +236,17 @@ export async function addExpense(
   note: string,
   site_id: string | null = null
 ): Promise<Expense> {
+  // Only include site_id when it has a value — avoids errors if column not yet migrated
+  const row: Record<string, unknown> = {
+    date, amount, description, note,
+    is_worker_pay: false, worker_id: null, work_day_id: null,
+    user_id: userId,
+  }
+  if (site_id) row.site_id = site_id
+
   const { data, error } = await supabase
     .from('expenses')
-    .insert({ date, amount, description, note, is_worker_pay: false, worker_id: null, work_day_id: null, site_id, user_id: userId })
+    .insert(row)
     .select()
     .single()
   if (error) throw error

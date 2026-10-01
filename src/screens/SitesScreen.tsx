@@ -215,8 +215,8 @@ export default function SitesScreen() {
         <div className="space-y-3">
           {bySite.map(([siteId, siteRows]) => {
             const site = siteMap[siteId]
-            const uniqueWorkerIds = new Set(
-              siteRows.flatMap(r => [...new Set(r.workers.map(w => w.worker_id))])
+            const totalWorkerDays = siteRows.reduce(
+              (sum, r) => sum + new Set(r.workers.map(w => w.worker_id)).size, 0
             )
             const uniqueDays = new Set(siteRows.map(r => r.date)).size
             const isExpanded = expandedSites.has(siteId)
@@ -237,7 +237,7 @@ export default function SitesScreen() {
                       <p className="stat-badge-label">{s.daysLabel}</p>
                     </div>
                     <div className="stat-badge flex-1">
-                      <p className="stat-badge-value">{uniqueWorkerIds.size}</p>
+                      <p className="stat-badge-value">{totalWorkerDays}</p>
                       <p className="stat-badge-label">{s.workersLabel}</p>
                     </div>
                   </div>
